@@ -42,15 +42,20 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
 
     public override void Load(bool hotReload)
     {
-        // Credenciales por variables de entorno del proceso del server, no en VipManager.json.
-        // Ver .env.example.
+        // Credenciales por variables de entorno del proceso, con fallback a un archivo .env
+        // en la carpeta del plugin (util en paneles tipo Pterodactyl donde no se puede setear
+        // env vars del contenedor sin tocar el egg). Ver .env.example.
+        var env = LoadEnvFile(Path.Combine(ModuleDirectory, ".env"));
+        string Setting(string key, string fallback) =>
+            env.TryGetValue(key, out var v) ? v : Environment.GetEnvironmentVariable(key) ?? fallback;
+
         _connectionString = new MySqlConnectionStringBuilder
         {
-            Server = Environment.GetEnvironmentVariable("VIPMANAGER_DB_HOST") ?? "127.0.0.1",
-            Port = uint.TryParse(Environment.GetEnvironmentVariable("VIPMANAGER_DB_PORT"), out var port) ? port : 3306,
-            Database = Environment.GetEnvironmentVariable("VIPMANAGER_DB_NAME") ?? "cs2vip",
-            UserID = Environment.GetEnvironmentVariable("VIPMANAGER_DB_USER") ?? "root",
-            Password = Environment.GetEnvironmentVariable("VIPMANAGER_DB_PASSWORD") ?? "",
+            Server = Setting("VIPMANAGER_DB_HOST", "127.0.0.1"),
+            Port = uint.TryParse(Setting("VIPMANAGER_DB_PORT", "3306"), out var port) ? port : 3306,
+            Database = Setting("VIPMANAGER_DB_NAME", "cs2vip"),
+            UserID = Setting("VIPMANAGER_DB_USER", "root"),
+            Password = Setting("VIPMANAGER_DB_PASSWORD", ""),
         }.ConnectionString;
 
         RefreshCache();
@@ -182,5 +187,26 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
             foreach (var key in _vipCache.Keys.Except(fresh.Keys).ToList())
                 _vipCache.TryRemove(key, out _);
         });
+    }
+
+    private static Dictionary<string, string> LoadEnvFile(string path)
+    {
+        var result = new Dictionary<string, string>();
+        if (!File.Exists(path)) return result;
+
+        foreach (var rawLine in File.ReadAllLines(path))
+        {
+            var line = rawLine.Trim();
+            if (line.Length == 0 || line.StartsWith('#')) continue;
+
+            var separator = line.IndexOf('=');
+            if (separator <= 0) continue;
+
+            var key = line[..separator].Trim();
+            var value = line[(separator + 1)..].Trim().Trim('"');
+            result[key] = value;
+        }
+
+        return result;
     }
 }

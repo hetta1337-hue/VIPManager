@@ -66,7 +66,14 @@ La conexión a MariaDB/MySQL **no** va en el JSON, va por variables de entorno d
 | `VIPMANAGER_DB_USER` | `root` |
 | `VIPMANAGER_DB_PASSWORD` | (vacío) |
 
-Copiá `.env.example` a `.env`, completá los valores reales, y hacé que el proceso del server las tenga seteadas al arrancar (systemd: `EnvironmentFile=/ruta/.env` en la unit; docker: `--env-file .env`; script propio: `export $(cat .env | xargs)` antes de lanzar el server). El plugin las lee de `Environment.GetEnvironmentVariable`, así que tienen que estar en el entorno del proceso, no alcanza con tener el `.env` tirado en una carpeta sin cargarlo.
+Copiá `.env.example` a `.env`, completá los valores reales, y hacé que el proceso del server las tenga seteadas al arrancar:
+
+- **systemd**: `EnvironmentFile=/ruta/.env` en la unit.
+- **docker**: `--env-file .env` o `env_file:` en docker-compose.
+- **Script propio**: exportar las variables antes de lanzar el server.
+- **Panel tipo Pterodactyl**: normalmente no podés setear env vars del contenedor sin editar el egg (cosa de admin). Para este caso el plugin tiene un fallback: si existe un archivo `.env` **en la misma carpeta del plugin** (`addons/counterstrikesharp/plugins/VipManager/.env`, junto al `VipManager.dll`), lo lee de ahí directamente — no hace falta tocar el contenedor. Subilo por el explorador de archivos del panel.
+
+El orden de prioridad es: `.env` en la carpeta del plugin → variable de entorno real del proceso → valor por defecto.
 
 ### VipManager.json
 
