@@ -22,11 +22,6 @@ public class VipManagerConfig : BasePluginConfig
 {
     public string ConnectionString { get; set; } = "Server=127.0.0.1;Port=3306;Database=cs2vip;User=root;Password=changeme;";
     public int ReminderDaysBefore { get; set; } = 7;
-
-    // Ponytail: how many *non-VIP* slots the server publicly advertises. Set sv_maxplayers on the
-    // server a couple higher than this (e.g. PublicSlots + expected concurrent VIPs) so a VIP
-    // connecting when public slots are full still has room to join before we kick someone.
-    public int PublicSlots { get; set; } = 10;
 }
 
 public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
@@ -115,7 +110,7 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
         Server.NextFrame(() =>
         {
             var humans = Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot).ToList();
-            if (humans.Count <= Config.PublicSlots) return;
+            if (humans.Count < Server.MaxPlayers) return; // hay lugar, no hace falta kickear a nadie
 
             var target = humans
                 .Where(p => p.AuthorizedSteamID.SteamId64 != id.SteamId64 && !IsVip(p.AuthorizedSteamID.SteamId64))

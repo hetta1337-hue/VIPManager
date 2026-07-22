@@ -66,13 +66,14 @@ Ahí se configura:
 |---|---|---|
 | `ConnectionString` | `Server=127.0.0.1;Port=3306;Database=cs2vip;User=root;Password=changeme;` | Cadena de conexión a la base MariaDB/MySQL. |
 | `ReminderDaysBefore` | `7` | Días antes del vencimiento en los que empieza a recordarle al jugador que renueve. |
-| `PublicSlots` | `10` | Cupos "normales" (no-VIP) del server. Ver slot reservado abajo. |
 
 Reiniciar el server (o el plugin) después de editar el config.
 
 ### Slot reservado
 
-Para que el kick por slot reservado tenga margen, `sv_maxplayers` en el server tiene que ser mayor a `PublicSlots` (la diferencia es la cantidad de VIPs que pueden entrar de más). Ejemplo: `PublicSlots = 10` y `sv_maxplayers 12` deja 2 cupos extra solo para VIP.
+Cuando se conecta un VIP, el plugin se fija si el server está lleno (jugadores conectados == `sv_maxplayers`); si lo está, kickea al no-VIP con el slot más alto para hacerle lugar.
+
+El motor de CS2 rechaza conexiones nuevas apenas se llega a `sv_maxplayers`, así que para que un VIP pueda entrar aunque esté "lleno" hace falta ese margen: subí `sv_maxplayers` 1 por encima de la cantidad real de jugadores que querés soportar (ej. si querés 10 jugadores de verdad, poné `sv_maxplayers 11`). El plugin se encarga de que ese cupo extra nunca lo ocupe un no-VIP por más de un instante.
 
 ## Comandos
 
