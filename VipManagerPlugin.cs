@@ -6,6 +6,7 @@ using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Entities;
 using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
+using Microsoft.Extensions.Logging;
 using MySqlConnector;
 
 namespace VipManager;
@@ -42,10 +43,14 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
 
     public override void Load(bool hotReload)
     {
-        // Credenciales por variables de entorno del proceso, con fallback a un archivo .env
+        // Credenciales por variables de entorno del proceso, con fallback a un archivo de env
         // en la carpeta del plugin (util en paneles tipo Pterodactyl donde no se puede setear
-        // env vars del contenedor sin tocar el egg). Ver .env.example.
-        var env = LoadEnvFile(Path.Combine(ModuleDirectory, ".env"));
+        // env vars del contenedor sin tocar el egg, y el file manager web a veces no deja
+        // subir archivos con nombre que empieza en punto). Ver .env.example.
+        var envPath = new[] { ".env", "env.txt" }
+            .Select(name => Path.Combine(ModuleDirectory, name))
+            .FirstOrDefault(File.Exists);
+        var env = envPath is null ? new Dictionary<string, string>() : LoadEnvFile(envPath);
         string Setting(string key, string fallback) =>
             env.TryGetValue(key, out var v) ? v : Environment.GetEnvironmentVariable(key) ?? fallback;
 
@@ -171,21 +176,30 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
     {
         Task.Run(async () =>
         {
-            await using var conn = new MySqlConnection(_connectionString);
-            await conn.OpenAsync();
-            await using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT steamid, vip_start, vip_end FROM vip_users WHERE vip_end > UTC_TIMESTAMP()";
-            await using var reader = await cmd.ExecuteReaderAsync();
+            try
+            {
+                await using var conn = new MySqlConnection(_connectionString);
+                await conn.OpenAsync();
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT steamid, vip_start, vip_end FROM vip_users WHERE vip_end > UTC_TIMESTAMP()";
+                await using var reader = await cmd.ExecuteReaderAsync();
 
-            var fresh = new Dictionary<ulong, (DateTime, DateTime)>();
-            while (await reader.ReadAsync())
-                fresh[(ulong)reader.GetInt64(0)] = (reader.GetDateTime(1), reader.GetDateTime(2));
+                var fresh = new Dictionary<ulong, (DateTime, DateTime)>();
+                while (await reader.ReadAsync())
+                    fresh[(ulong)reader.GetInt64(0)] = (reader.GetDateTime(1), reader.GetDateTime(2));
 
-            foreach (var kv in fresh)
-                _vipCache[kv.Key] = kv.Value;
+                foreach (var kv in fresh)
+                    _vipCache[kv.Key] = kv.Value;
 
-            foreach (var key in _vipCache.Keys.Except(fresh.Keys).ToList())
-                _vipCache.TryRemove(key, out _);
+                foreach (var key in _vipCache.Keys.Except(fresh.Keys).ToList())
+                    _vipCache.TryRemove(key, out _);
+
+                Logger.LogInformation("[VipManager] Cache actualizada: {Count} VIP(s) vigente(s).", fresh.Count);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "[VipManager] No se pudo leer vip_users de la base de datos.");
+            }
         });
     }
 

@@ -71,7 +71,7 @@ Copiá `.env.example` a `.env`, completá los valores reales, y hacé que el pro
 - **systemd**: `EnvironmentFile=/ruta/.env` en la unit.
 - **docker**: `--env-file .env` o `env_file:` en docker-compose.
 - **Script propio**: exportar las variables antes de lanzar el server.
-- **Panel tipo Pterodactyl**: normalmente no podés setear env vars del contenedor sin editar el egg (cosa de admin). Para este caso el plugin tiene un fallback: si existe un archivo `.env` **en la misma carpeta del plugin** (`addons/counterstrikesharp/plugins/VipManager/.env`, junto al `VipManager.dll`), lo lee de ahí directamente — no hace falta tocar el contenedor. Subilo por el explorador de archivos del panel.
+- **Panel tipo Pterodactyl**: normalmente no podés setear env vars del contenedor sin editar el egg (cosa de admin). Para este caso el plugin tiene un fallback: si existe un archivo `.env` **en la misma carpeta del plugin** (`addons/counterstrikesharp/plugins/VipManager/.env`, junto al `VipManager.dll`), lo lee de ahí directamente — no hace falta tocar el contenedor. Subilo por SFTP, o si el file manager web del panel no te deja subir archivos que arrancan con punto, subilo como `env.txt` (mismo formato, mismo lugar) — el plugin también lo busca con ese nombre.
 
 El orden de prioridad es: `.env` en la carpeta del plugin → variable de entorno real del proceso → valor por defecto.
 
