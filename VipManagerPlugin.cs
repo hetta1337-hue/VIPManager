@@ -124,22 +124,49 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
 
     private void OnClientAuthorized(int slot, SteamID id)
     {
-        if (!IsVip(id.SteamId64)) return;
+        var steamId = id.SteamId64;
 
-        Server.NextFrame(() =>
+        // No esperamos al refresh de 5 minutos: si alguien acaba de pagar y se conecta ya,
+        // consultamos su fila puntual para que el slot reservado lo reconozca al toque.
+        Task.Run(async () =>
         {
-            var humans = Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot).ToList();
-            if (humans.Count < Server.MaxPlayers) return; // hay lugar, no hace falta kickear a nadie
+            try
+            {
+                await using var conn = new MySqlConnection(_connectionString);
+                await conn.OpenAsync();
+                await using var cmd = conn.CreateCommand();
+                cmd.CommandText = "SELECT vip_start, vip_end FROM vip_users WHERE steamid = @steamid AND vip_end > UTC_TIMESTAMP()";
+                cmd.Parameters.AddWithValue("@steamid", steamId);
+                await using var reader = await cmd.ExecuteReaderAsync();
 
-            var target = humans
-                .Where(p => p.AuthorizedSteamID.SteamId64 != id.SteamId64 && !IsVip(p.AuthorizedSteamID.SteamId64))
-                // Ponytail: highest slot index as a stand-in for "joined most recently" - track
-                // real join timestamps per-session if you need exact recency.
-                .OrderByDescending(p => p.Slot)
-                .FirstOrDefault();
+                if (await reader.ReadAsync())
+                    _vipCache[steamId] = (reader.GetDateTime(0), reader.GetDateTime(1));
+                else
+                    _vipCache.TryRemove(steamId, out _);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "[VipManager] No se pudo verificar VIP al conectar steamid={SteamId}.", steamId);
+                // si falla, seguimos con lo que haya en cache (puede estar desactualizado)
+            }
 
-            if (target is not null)
-                Server.ExecuteCommand($"kickid {target.UserId} \"Slot reservado para VIP\"");
+            if (!IsVip(steamId)) return;
+
+            Server.NextFrame(() =>
+            {
+                var humans = Utilities.GetPlayers().Where(p => p.IsValid && !p.IsBot).ToList();
+                if (humans.Count < Server.MaxPlayers) return; // hay lugar, no hace falta kickear a nadie
+
+                var target = humans
+                    .Where(p => p.AuthorizedSteamID.SteamId64 != steamId && !IsVip(p.AuthorizedSteamID.SteamId64))
+                    // Ponytail: highest slot index as a stand-in for "joined most recently" - track
+                    // real join timestamps per-session if you need exact recency.
+                    .OrderByDescending(p => p.Slot)
+                    .FirstOrDefault();
+
+                if (target is not null)
+                    Server.ExecuteCommand($"kickid {target.UserId} \"Slot reservado para VIP\"");
+            });
         });
     }
 
