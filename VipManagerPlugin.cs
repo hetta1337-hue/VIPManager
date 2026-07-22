@@ -79,7 +79,11 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
     public void OnVipCommand(CCSPlayerController? player, CommandInfo info)
     {
         if (player is null || !player.IsValid) return;
+        ReplyVipStatus(player, $" {ChatColors.Grey}No tenes VIP activo.");
+    }
 
+    private void ReplyVipStatus(CCSPlayerController player, string noVipMessage)
+    {
         var steamId = player.AuthorizedSteamID.SteamId64;
         if (IsVip(steamId))
         {
@@ -88,7 +92,7 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
         }
         else
         {
-            player.PrintToChat($" {ChatColors.Grey}No tenes VIP activo.");
+            player.PrintToChat(noVipMessage);
         }
     }
 
@@ -99,11 +103,19 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
 
     private HookResult HandleChat(CCSPlayerController? player, CommandInfo info, bool teamOnly)
     {
-        if (player is null || !player.IsValid || !IsVip(player.AuthorizedSteamID.SteamId64))
-            return HookResult.Continue;
+        if (player is null || !player.IsValid) return HookResult.Continue;
 
         var message = info.GetArg(1);
         if (string.IsNullOrWhiteSpace(message)) return HookResult.Continue;
+
+        if (message.Trim().Equals("!vipstatus", StringComparison.OrdinalIgnoreCase))
+        {
+            ReplyVipStatus(player, $" {ChatColors.Red}Comando invalido.{ChatColors.Default} Podes adquirir tu VIP en {ChatColors.Gold}hettacs.com");
+            return HookResult.Handled; // solo lo ve quien lo escribio, no se manda al chat publico
+        }
+
+        if (!IsVip(player.AuthorizedSteamID.SteamId64))
+            return HookResult.Continue;
 
         var formatted = $" {ChatColors.Green}[VIP] {ChatColors.Gold}{player.PlayerName}{ChatColors.Default}: {ChatColors.Green}{message}";
 
