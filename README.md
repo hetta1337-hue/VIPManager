@@ -1,0 +1,79 @@
+# VipManager
+
+Plugin de [CounterStrikeSharp](https://docs.cssharp.dev/) para CS2 que da beneficios de VIP a los jugadores que figuran vigentes en una tabla de MariaDB: color de chat, slot reservado y recordatorio de vencimiento por chat.
+
+El plugin **solo lee** la tabla (`SELECT`). Los VIP se altan/renuevan/dan de baja desde afuera (una API externa u otro proceso que escribe en la base).
+
+## Qué hace
+
+- Colorea el chat (`say` / `say_team`) de los jugadores VIP.
+- Slot reservado: si el server está lleno y se conecta un VIP, kickea al no-VIP con el slot más alto para hacerle lugar.
+- Cada 15 minutos revisa a los VIP conectados y, si les quedan `ReminderDaysBefore` días o menos, les manda un recordatorio por chat (una vez por día, solo en memoria — no escribe nada en la base).
+- `css_vip`: comando para que cualquier jugador vea cuánto VIP le queda.
+
+## Requisitos
+
+- CS2 server con [Metamod:Source](https://www.sourcemm.net/) + [CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp) instalados.
+- MariaDB / MySQL accesible desde el server.
+- [.NET SDK](https://dotnet.microsoft.com/) 8+ para compilar (se probó con el SDK 10, que compila el paquete `CounterStrikeSharp.API` actual, target `net10.0`).
+
+## Esquema de la base de datos
+
+La tabla la crea y actualiza el sistema externo, no el plugin:
+
+```sql
+CREATE TABLE vip_users (
+    id        INT UNSIGNED    NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    steamid   BIGINT UNSIGNED NOT NULL UNIQUE,
+    name      VARCHAR(64)     NOT NULL,
+    vip_start DATETIME        NOT NULL,
+    vip_end   DATETIME        NOT NULL
+);
+```
+
+Un jugador es VIP si, al momento de la consulta, `vip_start <= NOW() <= vip_end`. `steamid` es el SteamID64.
+
+## Compilar
+
+```bash
+dotnet build -c Release
+```
+
+Genera `bin/Release/net10.0/VipManager.dll`.
+
+## Instalar
+
+Copiar estos dos archivos de `bin/Release/net10.0/` a `game/csgo/addons/counterstrikesharp/plugins/VipManager/` en el server:
+
+```
+VipManager.dll
+MySqlConnector.dll
+```
+
+El resto de las DLLs de esa carpeta (`CounterStrikeSharp.API`, `Microsoft.Extensions.*`, etc.) no hace falta copiarlas, ya las trae CounterStrikeSharp instalado en el server.
+
+## Configurar
+
+Al arrancar el server una vez con el plugin instalado, se genera:
+
+```
+addons/counterstrikesharp/configs/plugins/VipManager/VipManager.json
+```
+
+Ahí se configura:
+
+| Clave | Default | Descripción |
+|---|---|---|
+| `ConnectionString` | `Server=127.0.0.1;Port=3306;Database=cs2vip;User=root;Password=changeme;` | Cadena de conexión a la base MariaDB/MySQL. |
+| `ReminderDaysBefore` | `7` | Días antes del vencimiento en los que empieza a recordarle al jugador que renueve. |
+| `PublicSlots` | `10` | Cupos "normales" (no-VIP) del server. Ver slot reservado abajo. |
+
+Reiniciar el server (o el plugin) después de editar el config.
+
+### Slot reservado
+
+Para que el kick por slot reservado tenga margen, `sv_maxplayers` en el server tiene que ser mayor a `PublicSlots` (la diferencia es la cantidad de VIPs que pueden entrar de más). Ejemplo: `PublicSlots = 10` y `sv_maxplayers 12` deja 2 cupos extra solo para VIP.
+
+## Comandos
+
+- `css_vip` — cualquier jugador ve cuántos días de VIP le quedan.
