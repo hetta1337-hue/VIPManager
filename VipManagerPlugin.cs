@@ -12,7 +12,8 @@ namespace VipManager;
 
 // Esquema esperado (lo crea y actualiza la API externa, este plugin solo hace SELECT):
 //   CREATE TABLE vip_users (
-//       steamid   BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+//       id        INT UNSIGNED    NOT NULL AUTO_INCREMENT PRIMARY KEY,
+//       steamid   BIGINT UNSIGNED NOT NULL UNIQUE,
 //       name      VARCHAR(64)     NOT NULL,
 //       vip_start DATETIME        NOT NULL,
 //       vip_end   DATETIME        NOT NULL
