@@ -54,6 +54,22 @@ El resto de las DLLs de esa carpeta (`CounterStrikeSharp.API`, `Microsoft.Extens
 
 ## Configurar
 
+### Credenciales de la base (variables de entorno)
+
+La conexión a MariaDB/MySQL **no** va en el JSON, va por variables de entorno del proceso del server de CS2 (ver `.env.example`):
+
+| Variable | Default si falta |
+|---|---|
+| `VIPMANAGER_DB_HOST` | `127.0.0.1` |
+| `VIPMANAGER_DB_PORT` | `3306` |
+| `VIPMANAGER_DB_NAME` | `cs2vip` |
+| `VIPMANAGER_DB_USER` | `root` |
+| `VIPMANAGER_DB_PASSWORD` | (vacío) |
+
+Copiá `.env.example` a `.env`, completá los valores reales, y hacé que el proceso del server las tenga seteadas al arrancar (systemd: `EnvironmentFile=/ruta/.env` en la unit; docker: `--env-file .env`; script propio: `export $(cat .env | xargs)` antes de lanzar el server). El plugin las lee de `Environment.GetEnvironmentVariable`, así que tienen que estar en el entorno del proceso, no alcanza con tener el `.env` tirado en una carpeta sin cargarlo.
+
+### VipManager.json
+
 Al arrancar el server una vez con el plugin instalado, se genera:
 
 ```
@@ -64,10 +80,11 @@ Ahí se configura:
 
 | Clave | Default | Descripción |
 |---|---|---|
-| `ConnectionString` | `Server=127.0.0.1;Port=3306;Database=cs2vip;User=root;Password=changeme;` | Cadena de conexión a la base MariaDB/MySQL. |
 | `ReminderDaysBefore` | `7` | Días antes del vencimiento en los que empieza a recordarle al jugador que renueve. |
 
 Reiniciar el server (o el plugin) después de editar el config.
+
+`VipManager.example.json` (en la raíz de este repo) muestra cómo queda ese archivo. Si copiás ese ejemplo a `addons/counterstrikesharp/configs/plugins/VipManager/VipManager.example.json` *antes* de arrancar el server por primera vez, CounterStrikeSharp lo usa como base para generar el `VipManager.json` real.
 
 ### Slot reservado
 

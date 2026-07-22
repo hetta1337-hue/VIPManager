@@ -20,7 +20,6 @@ namespace VipManager;
 //   );
 public class VipManagerConfig : BasePluginConfig
 {
-    public string ConnectionString { get; set; } = "Server=127.0.0.1;Port=3306;Database=cs2vip;User=root;Password=changeme;";
     public int ReminderDaysBefore { get; set; } = 7;
 }
 
@@ -39,11 +38,21 @@ public class VipManagerPlugin : BasePlugin, IPluginConfig<VipManagerConfig>
     public void OnConfigParsed(VipManagerConfig config)
     {
         Config = config;
-        _connectionString = config.ConnectionString;
     }
 
     public override void Load(bool hotReload)
     {
+        // Credenciales por variables de entorno del proceso del server, no en VipManager.json.
+        // Ver .env.example.
+        _connectionString = new MySqlConnectionStringBuilder
+        {
+            Server = Environment.GetEnvironmentVariable("VIPMANAGER_DB_HOST") ?? "127.0.0.1",
+            Port = uint.TryParse(Environment.GetEnvironmentVariable("VIPMANAGER_DB_PORT"), out var port) ? port : 3306,
+            Database = Environment.GetEnvironmentVariable("VIPMANAGER_DB_NAME") ?? "cs2vip",
+            UserID = Environment.GetEnvironmentVariable("VIPMANAGER_DB_USER") ?? "root",
+            Password = Environment.GetEnvironmentVariable("VIPMANAGER_DB_PASSWORD") ?? "",
+        }.ConnectionString;
+
         RefreshCache();
 
         RegisterListener<Listeners.OnClientAuthorized>(OnClientAuthorized);
